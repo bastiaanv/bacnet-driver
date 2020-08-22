@@ -1,0 +1,26 @@
+{
+  "name": "@bastiaanv/bacnet-driver",
+  "version": "0.0.3",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "./node_modules/typescript/bin/tsc",
+    "demo": "ts-node ./example/index"
+  },
+  "author": "Bastiaan Verhaar",
+  "license": "GPL-2.0-only",
+  "devDependencies": {
+    "@types/bunyan": "^1.8.6",
+    "@types/node": "^14.6.0",
+    "typescript": "^3.9.7"
+  },
+  "dependencies": {
+    "bunyan": "^1.8.14",
+    "rxjs": "^6.6.2"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  }
+}

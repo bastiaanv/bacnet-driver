@@ -1,0 +1,35 @@
+name: Version dump
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  version_dump:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '12.x'
+
+    - name: Setup git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: Version dump (major)
+      run: npm version major -m "Version dump"
+      if: contains(github.event.pull_request.body, '[x] Major')
+    - name: Version dump (minor)
+      run: npm version minor -m "Version dump"
+      if: contains(github.event.pull_request.body, '[x] Minor')
+    - name: Version dump (patch)
+      run: npm version patch -m "Version dump"
+      if: contains(github.event.pull_request.body, '[x] Patch')
+
+    - name: Git push
+      run: git push
