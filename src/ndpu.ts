@@ -87,5 +87,5 @@ export class NetworkProtocolDataUnit {
         }
 
         return { target, length };
-      };
+    }
 }

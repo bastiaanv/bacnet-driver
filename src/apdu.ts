@@ -17,10 +17,7 @@ export class ApplicationProtocolDataUnit {
         buffer.offset++; // Increase offset, because we do not need type
         const service = buffer.buffer[buffer.offset++];
 
-        return {
-          length: buffer.offset - orgOffset,
-          service: service
-        };
+        return { length: buffer.offset - orgOffset, service };
     }
 
     public static decodeTag(buffer: TransporterBuffer): {tagNumber: number, length: number} {
@@ -65,5 +62,5 @@ export class ApplicationProtocolDataUnit {
         const service = buffer.buffer[buffer.offset++];
 
         return { service, invokeId, sequencenumber, proposedWindowNumber };
-      }
+    }
 }

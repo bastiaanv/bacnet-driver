@@ -1,4 +1,4 @@
-import { BVLL_TYPE_BACNET_IP, BvlcResultPurpose, BVLC_HEADER_LENGTH } from './enum';
+import { BVLL_TYPE_BACNET_IP, BvlcResultPurpose } from './enum';
 import { TransporterBuffer } from './interfaces/transporter.buffer';
 
 export class VirtualLinkControl {
@@ -7,7 +7,7 @@ export class VirtualLinkControl {
         buffer.buffer[1] = func;
         buffer.buffer[2] = (buffer.offset & 0xFF00) >> 8;
         buffer.buffer[3] = (buffer.offset & 0x00FF) >> 0;
-    };
+    }
       
     public static decode(buffer: Buffer): null | { length: number, function: number, } {
         const func = buffer[1];

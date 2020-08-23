@@ -79,7 +79,7 @@ export class BacnetDriver {
     }
 
     public readProperty(address: string, deviceId: number, objectType: number, objectInstance: number, propertyId: number): Promise<any> {
-        const device = this.foundDevices.find((x) => x.address == address && x.deviceId == deviceId)
+        const device = this.foundDevices.find((x) => x.address === address && x.deviceId === deviceId);
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
             macLayerAddress: device!.macLayerAddress,
@@ -195,7 +195,7 @@ export class BacnetDriver {
 
     private processConfirmedServiceRequest(buffer: TransporterBuffer, request: ComplexAcknowledge): void {
         if (request.service === ConfirmedServiceChoice.READ_PROPERTY) {
-            const promise = this.invokeStore.find(x => x.invokeId === request.invokeId);
+            const promise = this.invokeStore.find((x) => x.invokeId === request.invokeId);
             if (!promise) {
                 return this.logger.debug('No promise found for invoke: ' + request.invokeId);
             }
