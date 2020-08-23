@@ -1,5 +1,5 @@
 # Bacnet-driver
-A BACnet protocol stack written in pure typescript with RXJS. BACnet is a protocol to interact with building automation devices defined by ASHRAE. Big shout out to FH1CH for making the [node-bacstack library](https://github.com/fh1ch/node-bacstack). A lot of priniciples there, are used here.
+A BACnet protocol stack written in pure typescript with RXJS and promises. BACnet is a protocol to interact with building automation devices defined by ASHRAE. Big shout out to FH1CH for making the [node-bacstack library](https://github.com/fh1ch/node-bacstack). A lot of priniciples there, are used here.
 
 ## Usage
 Add Bacnet-driver to your project by:
@@ -17,12 +17,16 @@ npm i @bastiaanv@bacnet-driver
 ## Features
 **NOTE** this library is still in pre-alpa and is not recommended in poduction usages. For those case please use the [node-bacstack library](https://github.com/fh1ch/node-bacstack).
 
-| Service       | Receive | Excute |
-|---------------|---------|--------|
-| whoIs         | No      | Yes    |
-| iAm           | Yes     | No     |
-| readProperty  | No      | No     |
-| writeProperty | No      | No     |
+| Service       | Receive | Excute     |
+|---------------|---------|------------|
+| whoIs         | No      | Yes        |
+| iAm           | Yes     | No         |
+| readProperty  | No      | Partly     |
+| writeProperty | No      | No         |
+| readMultiple  | No      | No         |
+| writeMultiple | No      | No         |
+
+readProperty: This service can only read unsigned integers, floats, booleans, strings and ObjectIndentifiers
 
 ## Documentation
 The documentation is on its way. Please be patients

@@ -12,7 +12,9 @@ export const ASN1_MAX_OBJECT_TYPE = 1024;
 export const ASN1_MAX_PROPERTY_ID = 4194303;
 export const BVLL_TYPE_BACNET_IP = 0x81;
 export const BVLC_HEADER_LENGTH = 4;
-export const BUFFER_MAX_PAYLOAD = 1482
+export const BUFFER_MAX_PAYLOAD = 1482;
+export const APPLICATION_TAG_MASK = 0xF0;
+export const APPLICATION_TAG_LENGTH = 0x07;
 
 // ASHRE 135-2016 - 21 FORMAL DESCRIPTION OF APPLICATION PROTOCOL DATA UNITS - Enumerators
 export const ConfirmedServiceChoice = {
