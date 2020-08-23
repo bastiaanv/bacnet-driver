@@ -57,9 +57,14 @@ export class AbstractSytaxtNotation {
     }
 
     private static getUnsignedLength(value: number): number {
-        if (value < 0x100) return 1;
-        else if (value < 0x10000) return 2;
-        else if (value < 0x1000000) return 3;
-        else return 4;
-      }
+        if (value < 0x100) {
+            return 1;
+        } else if (value < 0x10000) {
+            return 2;
+        } else if (value < 0x1000000) {
+            return 3;
+        } else {
+            return 4;
+        }
+    }
 }
