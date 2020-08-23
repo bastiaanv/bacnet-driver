@@ -1,6 +1,10 @@
 # Bacnet-driver
 A BACnet protocol stack written in pure typescript with RXJS and promises. BACnet is a protocol to interact with building automation devices defined by ASHRAE. Big shout out to FH1CH for making the [node-bacstack library](https://github.com/fh1ch/node-bacstack). A lot of priniciples there, are used here.
 
+<p align="center">
+<a href="https://www.codacy.com/manual/bastiankpn7800/bacnet-driver?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bastiaanv/bacnet-driver&amp;utm_campaign=Badge_Grade"><img src="https://app.codacy.com/project/badge/Grade/1c0c7887e2f841218936eefd65768a22"/></a>
+</p>
+
 ## Usage
 Add Bacnet-driver to your project by:
 
