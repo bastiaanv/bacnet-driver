@@ -15,6 +15,8 @@ import { FoundDevice } from './interfaces/found.device';
 import { Ndpu } from './interfaces/ndpu/ndpu';
 import { ReadProperty } from './services/read.property';
 import { ComplexAcknowledge } from './interfaces/apdu/complex.acknowledge';
+import { ReadString } from './interfaces/events/readProperty/read.string';
+import { ReadObject } from './interfaces/events/readProperty/read.object';
 
 export class BacnetDriver {
     private readonly transporter: UdpTransporter;
@@ -68,11 +70,11 @@ export class BacnetDriver {
         this.transporter.send(buffer, '255.255.255.255');
     }
 
-    public readObjectList(address: string, deviceId: number): Promise<Array<{objectType: number, instanceNumber: number}>> {
+    public readObjectList(address: string, deviceId: number): Promise<ReadObject[]> {
         return this.readProperty(address, deviceId, ObjectType.DEVICE, deviceId, PropertyIdentifier.OBJECT_LIST);
     }
 
-    public readPresentValue(address: string, deviceId: number, objectType: number, objectInstance: number): Promise<{value: number}> {
+    public readPresentValue(address: string, deviceId: number, objectType: number, objectInstance: number): Promise<ReadString> {
         return this.readProperty(address, deviceId, objectType, objectInstance, PropertyIdentifier.PRESENT_VALUE);
     }
 

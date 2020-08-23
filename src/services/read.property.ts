@@ -2,6 +2,8 @@ import { TransporterBuffer } from '../interfaces/transporter.buffer';
 import { ASN1_MAX_OBJECT, ASN1_MAX_PROPERTY_ID, ApplicationTags, ASN1_MAX_INSTANCE, PropertyIdentifier } from '../enum';
 import { AbstractSytaxtNotation } from '../asn';
 import { ApplicationProtocolDataUnit } from '../apdu';
+import { ReadNumber } from '../interfaces/events/readProperty/read.number';
+import { ReadString } from '../interfaces/events/readProperty/read.string';
 
 export class ReadProperty {
     public static encode(buffer: TransporterBuffer, objectType: number, objectInstance: number, propertyId: number, reject: (message: string) => void): void {
@@ -50,19 +52,19 @@ export class ReadProperty {
         return null;
     }
 
-    private static readUInt(buffer: TransporterBuffer, tagLength: number): {value: number} {
+    private static readUInt(buffer: TransporterBuffer, tagLength: number): ReadNumber {
         return { value: buffer.buffer.readUIntBE(buffer.offset, tagLength) };
     }
 
-    private static readFloat(buffer: TransporterBuffer): {value: number} {
+    private static readFloat(buffer: TransporterBuffer): ReadNumber {
         return { value: buffer.buffer.readFloatBE(buffer.offset) };
     }
 
-    private static readBoolean(tag: number): {value: number} {
+    private static readBoolean(tag: number): ReadNumber {
         return { value: (tag & 0x01) };
     }
 
-    private static readString(buffer: TransporterBuffer, tagLength: number): {value: string} {
+    private static readString(buffer: TransporterBuffer, tagLength: number): ReadString {
         return { value: buffer.buffer.toString('utf8', buffer.offset+1, tagLength) };
     }
 
