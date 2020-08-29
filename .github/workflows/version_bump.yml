@@ -22,7 +22,7 @@ jobs:
         git config --local user.name "GitHub Action"
 
     - name: Check if build is valid
-      run: npm run build
+      run: npm i && npm run build
 
     - name: Version dump (major)
       run: npm version major -m "Version dump"
