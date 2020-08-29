@@ -21,6 +21,9 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
 
+    - name: Check if build is valid
+      run: npm run build
+
     - name: Version dump (major)
       run: npm version major -m "Version dump"
       if: contains(github.event.pull_request.body, '[x] Major')
