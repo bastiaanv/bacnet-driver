@@ -13,13 +13,13 @@ export class WriteProperty {
         }
 
         AbstractSytaxtNotation.encodeContextObjectId(buffer, 0, objectType, objectInstance);
-        AbstractSytaxtNotation.encodeTag(buffer, 3, 6);
+        AbstractSytaxtNotation.encodeTag(buffer, 3, 6, true);
 
         values.forEach((value) => {
             AbstractSytaxtNotation.encodeApplicationData(buffer, value, reject);
         });
 
-        AbstractSytaxtNotation.encodeTag(buffer, 3, 7);
+        AbstractSytaxtNotation.encodeTag(buffer, 3, 7, true);
         AbstractSytaxtNotation.encodeContextUnsigned(buffer, 1, propertyId);
     }
 }
