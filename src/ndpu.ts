@@ -1,25 +1,32 @@
 import { TransporterBuffer } from './interfaces/transporter.buffer';
 import { NpduControlBits, NetworkLayerMessageType } from './enum';
+import { NpduDestination } from './interfaces/ndpu/destination';
+import { Ndpu } from './interfaces/ndpu/ndpu';
 
 export class NetworkProtocolDataUnit {
     private static readonly BACNET_PROTOCOL_VERSION = 1;
-    private static readonly BacnetAddressTypes = { NONE: 0, IP: 1 };
 
-    public static encode(buffer: TransporterBuffer, funct: number, destination: string, hopCount: number) {
+    public static encode(buffer: TransporterBuffer, funct: number, destination: NpduDestination, hopCount: number, requireResponse: boolean) {
+        const hasDestination = destination.networkAddress.length > 0;
+
         buffer.buffer[buffer.offset++] = this.BACNET_PROTOCOL_VERSION;
-        buffer.buffer[buffer.offset++] = funct | NpduControlBits.DESTINATION_SPECIFIED;
+        buffer.buffer[buffer.offset++] = funct | (hasDestination ? NpduControlBits.DESTINATION_SPECIFIED : 0) | (requireResponse ? NpduControlBits.EXPECTING_REPLY : 0);
         
-        if (destination === '255.255.255.255') {
-            buffer.buffer[buffer.offset++] = 0xFF; // Network address -> 65535 when broadcast
-            buffer.buffer[buffer.offset++] = 0xFF; // Network address
-            buffer.buffer[buffer.offset++] = 0x00; // Mac layer address -> zero when broadcast
-        }
+        if (hasDestination) {
+            buffer.buffer[buffer.offset++] = destination.networkAddress[0]; // Network address -> 65535 when broadcast
+            buffer.buffer[buffer.offset++] = destination.networkAddress[1];
+            buffer.buffer[buffer.offset++] = destination.macLayerAddress.length; // Mac layer address -> zero when broadcast
+            
+            for (const macLayerAddressPart of destination.macLayerAddress) {
+                buffer.buffer[buffer.offset++] = macLayerAddressPart;
+            }
 
-        // Set hop count
-        buffer.buffer[buffer.offset++] = hopCount;
+            // Set hop count
+            buffer.buffer[buffer.offset++] = hopCount;
+        }
     }
 
-    public static decode(buffer: Buffer, offset: number): null | { length: number, function: number } {
+    public static decode(buffer: Buffer, offset: number): null | Ndpu {
         const orgOffset = offset;
         offset++;
 
@@ -30,8 +37,13 @@ export class NetworkProtocolDataUnit {
             offset += tmpDestination.length;
         }
 
+        let macLayerAddress: number[] = [];
+        let networkAddress: number[] = [];
         if (funct & NpduControlBits.SOURCE_SPECIFIED) {
             const tmpSource = this.decodeTarget(buffer, offset);
+            networkAddress = tmpSource.target.net;
+            macLayerAddress = tmpSource.target.adr;
+
             offset += tmpSource.length;
         }
         
@@ -53,12 +65,20 @@ export class NetworkProtocolDataUnit {
         return {
           length: offset - orgOffset,
           function: funct,
+          macLayerAddress,
+          networkAddress,
         };
     }
 
-    private static decodeTarget(buffer: Buffer, offset: number): { length: number, target: {type: number, net: number, adr: number[]} } {
+    private static decodeTarget(buffer: Buffer, offset: number): { length: number, target: {net: number[], adr: number[]} } {
         let length = 0;
-        const target: {type: number, net: number, adr: number[]} = {type: this.BacnetAddressTypes.NONE, net: (buffer[offset + length++] << 8) | (buffer[offset + length++] << 0), adr: []};
+        const target: {net: number[], adr: number[]} = { net: [], adr: [] };
+
+        // Get network address
+        target.net.push(buffer[offset + length++]);
+        target.net.push(buffer[offset + length++]);
+
+        // Get Mac layer
         const adrLen = buffer[offset + length++];
         if (adrLen > 0) {
           for (let i = 0; i < adrLen; i++) {
@@ -67,5 +87,5 @@ export class NetworkProtocolDataUnit {
         }
 
         return { target, length };
-      };
+    }
 }

@@ -21,9 +21,6 @@ export class IAm {
         }
         const deviceId = result.instance;
 
-        return {
-            length: buffer.offset - orgOffset,
-            deviceId: deviceId,
-        };
+        return { length: buffer.offset - orgOffset, deviceId };
     }
 }
