@@ -11,7 +11,7 @@ export class UdpTransporter extends EventEmitter.EventEmitter {
 
         this.settings = settings;
         this.server = dgram.createSocket({type: 'udp4', reuseAddr: true});
-        this.server.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => this.emit('message', msg, rinfo));
+        this.server.on('message', (msg: Buffer, rinfo: dgram.RemoteInfo) => this.emit('message', msg, rinfo.address));
         this.server.on('error', (err) => this.emit('message', err));
     }
 
