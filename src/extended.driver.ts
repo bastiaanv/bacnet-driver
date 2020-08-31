@@ -4,11 +4,11 @@ import { ObjectType, PropertyIdentifier } from './enum';
 import { ReadString } from './interfaces/events/readProperty/read.string';
 
 export class BacnetDriverExtended extends BacnetDriver {
-    public readObjectList(address: string, deviceId: number): Promise<ReadObject[]> {
-        return this.readProperty(address, deviceId, ObjectType.DEVICE, deviceId, PropertyIdentifier.OBJECT_LIST);
+    public readObjectList(options: {address: string, deviceId: number}): Promise<ReadObject[]> {
+        return this.readProperty({address: options.address, deviceId: options.deviceId, objectType: ObjectType.DEVICE, objectInstance: options.deviceId, propertyId: PropertyIdentifier.OBJECT_LIST});
     }
 
     public readPresentValue(address: string, deviceId: number, objectType: number, objectInstance: number): Promise<ReadString> {
-        return this.readProperty(address, deviceId, objectType, objectInstance, PropertyIdentifier.PRESENT_VALUE);
+        return this.readProperty({address, deviceId, objectType, objectInstance, propertyId: PropertyIdentifier.PRESENT_VALUE});
     }
 }
