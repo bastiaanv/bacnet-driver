@@ -3,7 +3,23 @@ A BACnet protocol stack written in pure typescript with RXJS and promises. BACne
 
 <p align="center">
 <a href="https://www.codacy.com/manual/bastiankpn7800/bacnet-driver?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bastiaanv/bacnet-driver&amp;utm_campaign=Badge_Grade"><img src="https://app.codacy.com/project/badge/Grade/1c0c7887e2f841218936eefd65768a22"/></a>
+<a href="https://github.com/bastiaanv/bacnet-driver/actions?query=workflow%3A%22Build+npm+package%22"><img src="https://github.com/bastiaanv/bacnet-driver/workflows/Build%20npm%20package/badge.svg"/></a>
 </p>
+
+## Table of Contents
+
+- [Usage](#Usage)
+- [Features](#Features)
+- [API Basic](#API--Basic)
+    - [Read property](#Read-Property)
+    - [Write property](#Write-Property)
+    - [Who Is](#Who-Is)
+- [API Extended](#API---Extended)
+    - [Read Object List](#Read-Object-List)
+- [Events](#Events)
+    - [I Am Subject](#I-Am-Subject)
+    - [Error Subject](#Error-Subject)
+- [License](#License)
 
 ## Usage
 Add Bacnet-driver to your project by:
@@ -19,21 +35,160 @@ npm i @bastiaanv@bacnet-driver
 ```
 
 ## Features
-**NOTE** this library is still in pre-alpa and is not recommended in poduction usages. For those case please use the [node-bacstack library](https://github.com/fh1ch/node-bacstack).
+**NOTE** this library is still in pre-alpa and is not recommended in poduction usages. For those case, please use the [node-bacstack library](https://github.com/fh1ch/node-bacstack).
 
-| Service       | Receive | Excute     |
+| Service       | Receive | execute    |
 |---------------|---------|------------|
 | whoIs         | No      | Yes        |
 | iAm           | Yes     | No         |
 | readProperty  | No      | Partly     |
-| writeProperty | No      | No         |
+| writeProperty | No      | Partly     |
 | readMultiple  | No      | No         |
 | writeMultiple | No      | No         |
 
 readProperty: This service can only read unsigned integers, floats, booleans, strings and ObjectIndentifiers
 
-## Documentation
-The documentation is on its way. Please be patients
+writeProperty: Unsupported types: TIMESTAMP, OCTET_STRING, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
+
+## API - Basic
+For an exmaple, please take a look at the `example` folder within this project.
+
+### Read Property
+The readProperty command reads a single property of an object from a device.
+#### Example
+```js
+import { BacnetDriver, ObjectType, PropertyIdentifier } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDiver({});
+bacnetDriver.readProperty({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    objectType: ObjectType.ANALOG_INPUT,
+    objectInstance: 1,
+    propertyId: PropertyIdentifier.PRESENT_VALUE
+}).then(console.log)
+```
+#### Parameters - `ReadPropertyOptions`
+| Name                     | Type   | Description                                                                                                        |
+|--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
+| `options`                | object |                                                                                                                    |
+| `options.address`        | string | IP address of the target device.                                                                                   |
+| `options.deviceId`       | number | The device ID to read.                                                                                             |
+| `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
+| `options.objectInstance` | number | The object instance to read.                                                                                       |
+| `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
+#### Returns
+The returned value depens on the propertyID you have read. This is why the this method returns the `Promise<any>`. But when you you the [BacnetDriverExtended](#API---Extended) you can use the predefined methods and will get the correct return type.
+| Name       | Type                                                                                      | Description |
+|------------|-------------------------------------------------------------------------------------------|-------------|
+| `response` | Promise\<any\> \| Promise\<ReadString\> \| Promise\<ReadNumber\> \| Promise\<ReadObject\> |             |
+
+### Write Property
+The writeProperty command writes a single property of an object to a device. Please note, that the following `ApplicationTags` are not supported yet: TIMESTAMP, OCTET_STRING, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
+#### Example
+```js
+import { BacnetDriver, ObjectType, PropertyIdentifier, ApplicationTags } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDiver({});
+bacnetDriver.writeProperty({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    objectType: ObjectType.ANALOG_INPUT,
+    objectInstance: 1,
+    propertyId: PropertyIdentifier.OUT_OF_SERVICE,
+    values: [
+        {type: ApplicationTags.BOOLEAN, value: true}
+    ]
+}).then(console.log)
+```
+#### Parameters - `WritePropertyOptions`
+| Name                     | Type   | Description                                                                                                        |
+|--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
+| `options`                | object |                                                                                                                    |
+| `options.address`        | string | IP address of the target device.                                                                                   |
+| `options.deviceId`       | number | The device ID to read.                                                                                             |
+| `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
+| `options.objectInstance` | number | The object instance to read.                                                                                       |
+| `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
+| `options.values`         | array  |                                                                                                                    |
+| `options.values.type`    | number | The data-type of the value to be written. The `ApplicationTags` could be used from the bacnetDriver enum.          |
+| `options.values.value`   | any    | The actual value to be written.                                                                                    |
+#### Returns
+| Name       | Type            | Description |
+|------------|-----------------|-------------|
+| `response` | Promise\<void\> |             |
+
+### Who Is
+The whoIs command discovers all BACNET devices in a network. BACNET devices who has received this command will sent a [IAm command](#I-Am-Subject).
+#### Example
+```js
+import { BacnetDriver } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriver({});
+bacnetDriver.whoIs();
+```
+#### Parameters
+None
+
+## API - Extended
+The BacnetDriverExtended has predefined BACNET methods for you to use, like: `readObjectList` or `readPresentValue`. Each of these methods make use of the `readProperty` or `writeProperty` method.
+
+### Read Object List
+The readObjectList command reads the object list of a BACNET device.
+#### Example
+```js
+import { BacnetDriverExtended, ObjectType, PropertyIdentifier } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriverExtended({});
+bacnetDriver.readObjectList({
+    address: '192.168.1.2',
+    deviceId: 2000
+}).then(console.log)
+```
+#### Parameters
+| Name                     | Type   | Description                          |
+|--------------------------|--------|--------------------------------------|
+| `options`                | object |                                      |
+| `options.address`        | string | IP address of the target device.     |
+| `options.deviceId`       | number | The device ID to read.               |
+#### Returns
+| Name       | Type                  | Description |
+|------------|-----------------------|-------------|
+| `response` | Promise<ReadObject[]> |             |
+
+## Events
+This library makes use of [RXJS](https://rxjs-dev.firebaseapp.com/guide/overview) library. 
+
+### I Am Subject
+This subject will fire, when a devices react to the [WhoIs command](#Who-Is) over the network or when a BACNET device has booted.
+#### Example
+```js
+import { BacnetDriver } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriver({});
+bacnetDrive.iAmObservable.subscribe(console.log);
+bacnetDriver.whoIs();
+```
+#### Returns - `IAmEvent`
+| Name                | Type   | Description                      |
+|---------------------|--------|----------------------------------|
+| `response`          | object |                                  |
+| `response.address`  | string | IP address of the target device. |
+| `response.deviceId` | number | The device ID to read.           |
+
+### Error Subject
+This subject will fire, when the UDP transporter has failed to send your message. This can occure when you gave this transporter an invalid IP address.
+#### Example
+```js
+import { BacnetDriver } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriver({});
+bacnetDrive.errorObservable.subscribe(console.log);
+```
+#### Returns
+| Name       | Type  | Description                |
+|------------|-------|----------------------------|
+| `response` | Error | The error that has occured |
 
 ## License
 

@@ -15,9 +15,10 @@ import { Ndpu } from './interfaces/ndpu/ndpu';
 import { ReadProperty } from './services/read.property';
 import { ComplexAcknowledge } from './interfaces/apdu/complex.acknowledge';
 import { WriteProperty } from './services/write.property';
-import { WriteValue } from './interfaces/events/writeProperty/write.value';
 import { SimpleAcknowledge } from './interfaces/apdu/simple.acknowledge';
 import { ErrorService } from './services/error';
+import { ReadPropertyOptions } from './interfaces/events/readProperty/read.property.options';
+import { WritePropertyOptions } from './interfaces/events/writeProperty/write.property.options';
 
 export class BacnetDriver {
     private readonly transporter: UdpTransporter;
@@ -71,8 +72,8 @@ export class BacnetDriver {
         this.transporter.send(buffer, '255.255.255.255');
     }
 
-    public readProperty(address: string, deviceId: number, objectType: number, objectInstance: number, propertyId: number): Promise<any> {
-        const device = this.foundDevices.find((x) => x.address === address && x.deviceId === deviceId);
+    public readProperty(options: ReadPropertyOptions): Promise<any> {
+        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
             macLayerAddress: device!.macLayerAddress,
@@ -86,19 +87,19 @@ export class BacnetDriver {
 
         return new Promise<void>((resolve, reject) => {
             // Encode message
-            ReadProperty.encode(buffer, objectType, objectInstance, propertyId, reject);
+            ReadProperty.encode(buffer, options.objectType, options.objectInstance, options.propertyId, reject);
             VirtualLinkControl.encode(buffer, BvlcResultPurpose.ORIGINAL_UNICAST_NPDU);
 
             // Send message
-            this.transporter.send(buffer, address);
+            this.transporter.send(buffer, options.address);
 
             // Add callback timeout
             this.addCallback(invokeId, resolve, reject);
         });
     }
 
-    public writeProperty(address: string, deviceId: number, objectType: number, objectInstance: number, propertyId: number, values: WriteValue[]): Promise<void> {
-        const device = this.foundDevices.find((x) => x.address === address && x.deviceId === deviceId);
+    public writeProperty(options: WritePropertyOptions): Promise<void> {
+        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
             macLayerAddress: device!.macLayerAddress,
@@ -112,11 +113,11 @@ export class BacnetDriver {
 
         return new Promise<any>((resolve, reject) => {
             // Encode message
-            WriteProperty.encode(buffer, objectType, objectInstance, propertyId, values, reject);
+            WriteProperty.encode(buffer, options.objectType, options.objectInstance, options.propertyId, options.values, reject);
             VirtualLinkControl.encode(buffer, BvlcResultPurpose.ORIGINAL_UNICAST_NPDU);
 
             // Send message
-            this.transporter.send(buffer, address);
+            this.transporter.send(buffer, options.address);
 
             // Add callback timeout
             this.addCallback(invokeId, resolve, reject);
