@@ -1,6 +1,6 @@
 {
-  "name": "@bastiaanv/bacnet-driver",
-  "version": "0.1.0",
+  "name": "@bastiaanv/bacnet-driver-beta",
+  "version": "0.2.0",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

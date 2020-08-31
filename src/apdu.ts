@@ -1,6 +1,7 @@
 import { TransporterBuffer } from './interfaces/transporter.buffer';
 import { PduTypes, PduConReqBits, MaxSegmentsAccepted, MaxApduLengthAccepted, APPLICATION_TAG_MASK, APPLICATION_TAG_LENGTH } from './enum';
 import { ComplexAcknowledge } from './interfaces/apdu/complex.acknowledge';
+import { SimpleAcknowledge } from './interfaces/apdu/simple.acknowledge';
 
 export class ApplicationProtocolDataUnit {
     public static encodeUnconfirmedServiceRequest(buffer: TransporterBuffer, service: number) {
@@ -62,5 +63,13 @@ export class ApplicationProtocolDataUnit {
         const service = buffer.buffer[buffer.offset++];
 
         return { service, invokeId, sequencenumber, proposedWindowNumber };
+    }
+
+    public static decodeSimpleAcknowledge(buffer: TransporterBuffer): SimpleAcknowledge {
+        return {
+            type: buffer.buffer[buffer.offset++],
+            invokeId: buffer.buffer[buffer.offset++],
+            service: buffer.buffer[buffer.offset++],
+        };
     }
 }
