@@ -13,6 +13,40 @@ export class ApplicationProtocolDataUnit {
         return buffer.buffer[buffer.offset];
     }
 
+    public static encodeConfirmedServiceRequest(buffer: TransporterBuffer, service: number, invokeId: number, sequencenumber: number, proposedWindowSize: number, acceptSegmentedResponses: boolean): void {
+        const type = PduTypes.CONFIRMED_REQUEST | (acceptSegmentedResponses ? PduConReqBits.SEGMENTED_RESPONSE_ACCEPTED : 0);
+        
+        buffer.buffer[buffer.offset++] = type;
+        buffer.buffer[buffer.offset++] = MaxSegmentsAccepted.SEGMENTS_65 | MaxApduLengthAccepted.OCTETS_1476;
+        buffer.buffer[buffer.offset++] = invokeId;
+
+        if ((type & PduConReqBits.SEGMENTED_MESSAGE) > 0) {
+            buffer.buffer[buffer.offset++] = sequencenumber;
+            buffer.buffer[buffer.offset++] = proposedWindowSize;
+        }
+
+        buffer.buffer[buffer.offset++] = service;
+    }
+
+    public static encodeSegmentAck(buffer: TransporterBuffer, type: number, originalInvokeId: number, sequencenumber: number, actualWindowSize: number) {
+        buffer.buffer[buffer.offset++] = type;
+        buffer.buffer[buffer.offset++] = originalInvokeId;
+        buffer.buffer[buffer.offset++] = sequencenumber;
+        buffer.buffer[buffer.offset++] = actualWindowSize;
+    }
+
+    public static encodeComplexAck(buffer: TransporterBuffer, type: number, service: number, invokeId: number, sequencenumber: number, proposedWindowNumber: number): void {
+        let len = 3;
+        buffer.buffer[buffer.offset++] = type;
+        buffer.buffer[buffer.offset++] = invokeId;
+        if ((type & PduConReqBits.SEGMENTED_MESSAGE) > 0) {
+          buffer.buffer[buffer.offset++] = sequencenumber;
+          buffer.buffer[buffer.offset++] = proposedWindowNumber;
+          len += 2;
+        }
+        buffer.buffer[buffer.offset++] = service;
+    }
+
     public static decodeUnconfirmedServiceRequest(buffer: TransporterBuffer): {length: number, service: number} {
         const orgOffset = buffer.offset;
         buffer.offset++; // Increase offset, because we do not need type
@@ -34,22 +68,8 @@ export class ApplicationProtocolDataUnit {
         return { tagNumber: (value & APPLICATION_TAG_MASK), length: (value & APPLICATION_TAG_LENGTH) };
     }
 
-    public static encodeConfirmedServiceRequest(buffer: TransporterBuffer, service: number, invokeId: number, sequencenumber: number, proposedWindowSize: number, acceptSegmentedResponses: boolean): void {
-        const type = PduTypes.CONFIRMED_REQUEST | (acceptSegmentedResponses ? PduConReqBits.SEGMENTED_RESPONSE_ACCEPTED : 0);
-        
-        buffer.buffer[buffer.offset++] = type;
-        buffer.buffer[buffer.offset++] = MaxSegmentsAccepted.SEGMENTS_65 | MaxApduLengthAccepted.OCTETS_1476;
-        buffer.buffer[buffer.offset++] = invokeId;
-
-        if ((type & PduConReqBits.SEGMENTED_MESSAGE) > 0) {
-            buffer.buffer[buffer.offset++] = sequencenumber;
-            buffer.buffer[buffer.offset++] = proposedWindowSize;
-        }
-
-        buffer.buffer[buffer.offset++] = service;
-    }
-
     public static decodeComplexAcknowledge(buffer: TransporterBuffer): ComplexAcknowledge {
+        const orgOffset = buffer.offset;
         const type = buffer.buffer[buffer.offset++];
         const invokeId = buffer.buffer[buffer.offset++];
 
@@ -62,7 +82,7 @@ export class ApplicationProtocolDataUnit {
 
         const service = buffer.buffer[buffer.offset++];
 
-        return { service, invokeId, sequencenumber, proposedWindowNumber };
+        return { service, invokeId, sequencenumber, proposedWindowNumber, type, length: orgOffset - buffer.offset };
     }
 
     public static decodeSimpleAcknowledge(buffer: TransporterBuffer): SimpleAcknowledge {

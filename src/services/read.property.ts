@@ -71,10 +71,12 @@ export class ReadProperty {
     private static readList(buffer: TransporterBuffer): any[] {
         const result: any[] = [];
         const objectIdentifierMask = ApplicationTags.OBJECTIDENTIFIER << 4;
-        while (buffer.buffer.length !== buffer.offset) {
+
+        const end = buffer.buffer.length -1;
+        while (buffer.offset < end) {
             const applicationTag = ApplicationProtocolDataUnit.decodeTag(buffer);
             if (applicationTag.tagNumber === objectIdentifierMask) {
-                const value = buffer.buffer.readIntBE(buffer.offset, 4);
+                const value = buffer.buffer.readUIntBE(buffer.offset, 4);
                 result.push({ objectType: value >> 22, instanceNumber: value & ASN1_MAX_INSTANCE });
     
                 buffer.offset += 4;

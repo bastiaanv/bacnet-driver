@@ -1,7 +1,7 @@
 import { UdpTransporter, UdpTransporterSettings } from './transporter';
 import Logger, { createLogger } from 'bunyan';
 import { VirtualLinkControl } from './virtual.link.control';
-import { BVLC_HEADER_LENGTH, BvlcResultPurpose, BUFFER_MAX_PAYLOAD, NpduControlPriority, UnconfirmedServiceChoice, NpduControlBits, PDU_TYPE_MASK, PduTypes, ConfirmedServiceChoice, ObjectType, PropertyIdentifier, PduConReqBits } from './enum';
+import { BVLC_HEADER_LENGTH, BvlcResultPurpose, BUFFER_MAX_PAYLOAD, NpduControlPriority, UnconfirmedServiceChoice, NpduControlBits, PDU_TYPE_MASK, PduTypes, ConfirmedServiceChoice, ObjectType, PropertyIdentifier, PduConReqBits, PduSegAckBits } from './enum';
 import { TransporterBuffer } from './interfaces/transporter.buffer';
 import { NetworkProtocolDataUnit } from './ndpu';
 import { ApplicationProtocolDataUnit } from './apdu';
@@ -31,6 +31,7 @@ export class BacnetDriver {
 
     private readonly foundDevices: FoundDevice[] = [];
     private readonly invokeStore: Array<{invokeId: number, callback(data?: any, err?: any): void}> = [];
+    private readonly segmentStore: Array<{invokeId: number, lastNumber: number, store: Array<Buffer>}> = [];
     private invokeId: number = 0;
 
     constructor(options: BacnetOptions) {
@@ -173,6 +174,10 @@ export class BacnetDriver {
         }
 
         const type = ApplicationProtocolDataUnit.getDecodedType(buffer);
+        return this.handlePdu(buffer, remoteAddress, msgLength, resultNdpu, type);
+    }
+
+    private handlePdu(buffer: TransporterBuffer, remoteAddress: string, msgLength: number, resultNdpu: Ndpu, type: number) {
         const apduType = type & PDU_TYPE_MASK;
         if (apduType === PduTypes.UNCONFIRMED_REQUEST) {
             const result = ApplicationProtocolDataUnit.decodeUnconfirmedServiceRequest(buffer);
@@ -184,7 +189,7 @@ export class BacnetDriver {
                 return this.processComplexServiceRequest(buffer, result);
             
             } else {
-                return this.logger.debug('Received segmented message, which is not supported yet -> Drop package');
+                return this.processSegment(remoteAddress, result.type, result.service, result.invokeId, result.sequencenumber, result.proposedWindowNumber, buffer, msgLength, resultNdpu);
             }
 
         } else if (apduType === PduTypes.SIMPLE_ACK) {
@@ -199,6 +204,68 @@ export class BacnetDriver {
             return this.logger.debug('Received unsupported PDU message -> Drop package');
         }
     }
+
+    private processSegment(receiver: string, type: number, service: number, invokeId: number, sequencenumber: number, proposedWindowNumber: number, buffer: TransporterBuffer, length: number, ndpu: Ndpu): void {
+        let first = false;
+        let lastSequenceIndex = this.segmentStore.findIndex(x => x.invokeId === invokeId);
+        if (sequencenumber === 0 && lastSequenceIndex === -1) {
+          first = true;
+          this.segmentStore.push({invokeId, lastNumber: 0, store: []});
+          lastSequenceIndex = this.segmentStore.length - 1;
+        } else {
+          if (sequencenumber !== this.segmentStore[lastSequenceIndex].lastNumber + 1) {
+              this.logger.debug('Received wrong package -> Requesting correct one');
+              return this.segmentAckResponse(receiver, true, invokeId, this.segmentStore[lastSequenceIndex].lastNumber, proposedWindowNumber, ndpu);
+          }
+        }
+        
+        this.segmentStore[lastSequenceIndex].lastNumber = sequencenumber;
+        const moreFollows = (type & PduConReqBits.MORE_FOLLOWS) > 0;
+        if ((sequencenumber % proposedWindowNumber) === 0 || !moreFollows) {
+            this.segmentAckResponse(receiver, false, invokeId, this.segmentStore[lastSequenceIndex].lastNumber, proposedWindowNumber, ndpu);
+        }
+
+        this.performDefaultSegmentHandling(lastSequenceIndex, receiver, type, service, invokeId, first, moreFollows, buffer, length, ndpu, proposedWindowNumber);
+      }
+
+      private segmentAckResponse(receiver: string, negative: boolean, originalInvokeId: number, sequencenumber: number, actualWindowSize: number, ndpu: Ndpu): void {
+        const buffer = this.getBuffer();
+        NetworkProtocolDataUnit.encode(buffer, NpduControlPriority.NORMAL_MESSAGE, {macLayerAddress: ndpu.macLayerAddress, networkAddress: ndpu.networkAddress}, 0xFF, false);
+        ApplicationProtocolDataUnit.encodeSegmentAck(buffer, PduTypes.SEGMENT_ACK | (negative ? PduSegAckBits.NEGATIVE_ACK : 0) | 0, originalInvokeId, sequencenumber, actualWindowSize);
+        VirtualLinkControl.encode(buffer, BvlcResultPurpose.ORIGINAL_UNICAST_NPDU);
+        this.transporter.send(buffer, receiver);
+      }
+
+      private performDefaultSegmentHandling(segmentIndex: number, adr: string, type: number, service: number, invokeId: number, first: boolean, moreFollows: boolean, buffer: TransporterBuffer, length: number, ndpu: Ndpu, proposedWindowNumber: number) {
+        if (first) {
+            type &= ~PduConReqBits.SEGMENTED_MESSAGE;
+            let apduHeaderLen = 3;
+            if ((type & PDU_TYPE_MASK) === PduTypes.CONFIRMED_REQUEST) {
+                apduHeaderLen = 4;
+            }
+            
+            const apdubuffer = this.getBuffer();
+            apdubuffer.offset = 0;
+            buffer.buffer.copy(apdubuffer.buffer, apduHeaderLen, buffer.offset, buffer.offset + length);
+
+            if ((type & PDU_TYPE_MASK) === PduTypes.CONFIRMED_REQUEST) {
+                ApplicationProtocolDataUnit.encodeConfirmedServiceRequest(apdubuffer, service, invokeId, this.segmentStore[segmentIndex].lastNumber, proposedWindowNumber, true);
+            } else {
+            ApplicationProtocolDataUnit.encodeComplexAck(apdubuffer, type, service, invokeId, 0, 0);
+            }
+
+            this.segmentStore[segmentIndex].store.push(apdubuffer.buffer.slice(0, length + apduHeaderLen));
+        } else {
+            this.segmentStore[segmentIndex].store.push(buffer.buffer.slice(buffer.offset, buffer.offset + length));
+        }
+
+        if (!moreFollows) {
+            const apduBuffer = { buffer: Buffer.concat(this.segmentStore[segmentIndex].store), offset: 0 };
+            this.segmentStore.splice(segmentIndex, 1);
+            type &= ~PduConReqBits.SEGMENTED_MESSAGE;
+            this.handlePdu(apduBuffer, adr, length, ndpu, type);
+        }
+      }
 
     private processUnconfirmedServiceRequest(buffer: TransporterBuffer, service: number, address: string, length: number, ndpu: Ndpu) {
         if (service === UnconfirmedServiceChoice.I_AM) {
@@ -268,7 +335,12 @@ export class BacnetDriver {
     private addCallback(id: number, resolve: (data: any) => void, reject: (message: string) => void) {
         const timeout = setTimeout(() => {
             this.invokeStore.splice(this.invokeStore.findIndex((x) => x.invokeId === id), 1);
-            reject('ERR_TIMEOUT');
+            const segmentIndex = this.segmentStore.findIndex(x => x.invokeId === id);
+            if (segmentIndex !== -1) {
+                this.segmentStore.splice(segmentIndex, 1);
+            }
+
+            reject('ERR_TIMEOUT: ' + id);
         }, this.options.timeout);
         
         this.invokeStore.push({ invokeId: id, callback: (data?: any, err?: any) => {
