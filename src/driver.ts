@@ -1,7 +1,7 @@
 import { UdpTransporter, UdpTransporterSettings } from './transporter';
 import Logger, { createLogger } from 'bunyan';
 import { VirtualLinkControl } from './virtual.link.control';
-import { BVLC_HEADER_LENGTH, BvlcResultPurpose, BUFFER_MAX_PAYLOAD, NpduControlPriority, UnconfirmedServiceChoice, NpduControlBits, PDU_TYPE_MASK, PduTypes, ConfirmedServiceChoice, ObjectType, PropertyIdentifier, PduConReqBits, PduSegAckBits } from './enum';
+import { BVLC_HEADER_LENGTH, BvlcResultPurpose, BUFFER_MAX_PAYLOAD, NpduControlPriority, UnconfirmedServiceChoice, NpduControlBits, PDU_TYPE_MASK, PduTypes, ConfirmedServiceChoice, ObjectType, PropertyIdentifier, PduConReqBits, MaxApduLengthAccepted, MaxSegmentsAccepted, PduSegAckBits, NetworkLayerMessageType, ServicesSupported } from './enum';
 import { TransporterBuffer } from './interfaces/transporter.buffer';
 import { NetworkProtocolDataUnit } from './ndpu';
 import { ApplicationProtocolDataUnit } from './apdu';
@@ -19,6 +19,9 @@ import { SimpleAcknowledge } from './interfaces/apdu/simple.acknowledge';
 import { ErrorService } from './services/error';
 import { ReadPropertyOptions } from './interfaces/events/readProperty/read.property.options';
 import { WritePropertyOptions } from './interfaces/events/writeProperty/write.property.options';
+import { COV } from './services/change.on.value';
+import { COVEvent } from './interfaces/events/cov/change.on.value.event';
+import { COVOptions } from './interfaces/events/cov/change.on.value.options';
 
 export class BacnetDriver {
     private readonly transporter: UdpTransporter;
@@ -27,12 +30,14 @@ export class BacnetDriver {
 
     // RXJS Subjects
     public readonly iAmObservable: Subject<IAmEvent> = new Subject<IAmEvent>();
+    public readonly covObservable: Subject<COVEvent> = new Subject<COVEvent>();
     public readonly errorObservable: Subject<Error> = new Subject<Error>();
 
     private readonly foundDevices: FoundDevice[] = [];
     private readonly invokeStore: Array<{invokeId: number, callback(data?: any, err?: any): void}> = [];
     private readonly segmentStore: Array<{invokeId: number, lastNumber: number, store: Array<Buffer>}> = [];
     private invokeId: number = 0;
+    private processId: number = 0;
 
     constructor(options: BacnetOptions) {
         options.timeout = options.timeout || 3000;
@@ -75,6 +80,10 @@ export class BacnetDriver {
 
     public readProperty(options: ReadPropertyOptions): Promise<any> {
         const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
+        if (!device) {
+            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
+        }
+
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
             macLayerAddress: device!.macLayerAddress,
@@ -101,6 +110,10 @@ export class BacnetDriver {
 
     public writeProperty(options: WritePropertyOptions): Promise<void> {
         const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
+        if (!device) {
+            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
+        }
+        
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
             macLayerAddress: device!.macLayerAddress,
@@ -115,6 +128,37 @@ export class BacnetDriver {
         return new Promise<any>((resolve, reject) => {
             // Encode message
             WriteProperty.encode(buffer, options.objectType, options.objectInstance, options.propertyId, options.values, reject);
+            VirtualLinkControl.encode(buffer, BvlcResultPurpose.ORIGINAL_UNICAST_NPDU);
+
+            // Send message
+            this.transporter.send(buffer, options.address);
+
+            // Add callback timeout
+            this.addCallback(invokeId, resolve, reject);
+        });
+    }
+
+    public subscribeCov(options: COVOptions): Promise<void> {
+        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
+        if (!device) {
+            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
+        }
+        
+        const destination: NpduDestination = {
+            networkAddress: device!.networkAddress,
+            macLayerAddress: device!.macLayerAddress,
+        };
+        const buffer = this.getBuffer();
+        const invokeId = this.getInvokeId();
+        options.processId = options.processId || this.getProcessId();
+
+        // Encode bacnet message
+        NetworkProtocolDataUnit.encode(buffer, NpduControlPriority.NORMAL_MESSAGE | NpduControlBits.EXPECTING_REPLY, destination, 255, true);
+        ApplicationProtocolDataUnit.encodeConfirmedServiceRequest(buffer, ConfirmedServiceChoice.SUBSCRIBE_COV, invokeId, 0, 0, true);
+        
+        return new Promise<any>((resolve, reject) => {
+            // Encode message
+            COV.encode(buffer, options);
             VirtualLinkControl.encode(buffer, BvlcResultPurpose.ORIGINAL_UNICAST_NPDU);
 
             // Send message
@@ -181,7 +225,7 @@ export class BacnetDriver {
         const apduType = type & PDU_TYPE_MASK;
         if (apduType === PduTypes.UNCONFIRMED_REQUEST) {
             const result = ApplicationProtocolDataUnit.decodeUnconfirmedServiceRequest(buffer);
-            return this.processUnconfirmedServiceRequest(buffer, result.service, remoteAddress, msgLength - result.length, resultNdpu);
+            return this.processUnconfirmedServiceRequest(buffer, result.service, remoteAddress, resultNdpu);
         
         } else if (apduType === PduTypes.COMPLEX_ACK) {
             const result = ApplicationProtocolDataUnit.decodeComplexAcknowledge(buffer);
@@ -189,7 +233,7 @@ export class BacnetDriver {
                 return this.processComplexServiceRequest(buffer, result);
             
             } else {
-                return this.processSegment(remoteAddress, result.type, result.service, result.invokeId, result.sequencenumber, result.proposedWindowNumber, buffer, msgLength, resultNdpu);
+                return this.processSegment(remoteAddress, result.type, result.service, result.invokeId, result.sequencenumber, result.proposedWindowNumber, buffer, msgLength - result.length, resultNdpu);
             }
 
         } else if (apduType === PduTypes.SIMPLE_ACK) {
@@ -243,7 +287,7 @@ export class BacnetDriver {
             if ((type & PDU_TYPE_MASK) === PduTypes.CONFIRMED_REQUEST) {
                 apduHeaderLen = 4;
             }
-            
+          
             const apdubuffer = this.getBuffer();
             apdubuffer.offset = 0;
             buffer.buffer.copy(apdubuffer.buffer, apduHeaderLen, buffer.offset, buffer.offset + length);
@@ -251,7 +295,7 @@ export class BacnetDriver {
             if ((type & PDU_TYPE_MASK) === PduTypes.CONFIRMED_REQUEST) {
                 ApplicationProtocolDataUnit.encodeConfirmedServiceRequest(apdubuffer, service, invokeId, this.segmentStore[segmentIndex].lastNumber, proposedWindowNumber, true);
             } else {
-            ApplicationProtocolDataUnit.encodeComplexAck(apdubuffer, type, service, invokeId, 0, 0);
+                ApplicationProtocolDataUnit.encodeComplexAck(apdubuffer, type, service, invokeId, 0, 0);
             }
 
             this.segmentStore[segmentIndex].store.push(apdubuffer.buffer.slice(0, length + apduHeaderLen));
@@ -265,9 +309,9 @@ export class BacnetDriver {
             type &= ~PduConReqBits.SEGMENTED_MESSAGE;
             this.handlePdu(apduBuffer, adr, length, ndpu, type);
         }
-      }
+    }
 
-    private processUnconfirmedServiceRequest(buffer: TransporterBuffer, service: number, address: string, length: number, ndpu: Ndpu) {
+    private processUnconfirmedServiceRequest(buffer: TransporterBuffer, service: number, address: string, ndpu: Ndpu) {
         if (service === UnconfirmedServiceChoice.I_AM) {
             const result = IAm.decode(buffer);
             if (!result) {
@@ -283,6 +327,10 @@ export class BacnetDriver {
 
             this.iAmObservable.next({ address, deviceId: result.deviceId });
         
+        } else if (service === UnconfirmedServiceChoice.UNCONFIRMED_COV_NOTIFICATION) {
+            const result = COV.decode(buffer);
+            this.covObservable.next(result);
+
         } else {
             return this.logger.debug('UNCONFIRMED_SERVICES: Received message for unsupported service -> Drop package');
         }
@@ -306,7 +354,15 @@ export class BacnetDriver {
         if (request.service === ConfirmedServiceChoice.WRITE_PROPERTY) {
             const promise = this.invokeStore.find((x) => x.invokeId === request.invokeId);
             if (!promise) {
-                return this.logger.debug('CONFIRMED_SIMPLE_SERVICES: No promise found for invoke: ' + request.invokeId + ' -> Drop package');
+                return this.logger.debug('WRITE_PROPERTY: No promise found for invoke: ' + request.invokeId + ' -> Drop package');
+            }
+
+            promise.callback();
+
+        } else if (request.service === ConfirmedServiceChoice.SUBSCRIBE_COV) {
+            const promise = this.invokeStore.find((x) => x.invokeId === request.invokeId);
+            if (!promise) {
+                return this.logger.debug('SUBSCRIBE_COV: No promise found for invoke: ' + request.invokeId + ' -> Drop package');
             }
 
             promise.callback();
@@ -335,6 +391,7 @@ export class BacnetDriver {
     private addCallback(id: number, resolve: (data: any) => void, reject: (message: string) => void) {
         const timeout = setTimeout(() => {
             this.invokeStore.splice(this.invokeStore.findIndex((x) => x.invokeId === id), 1);
+            
             const segmentIndex = this.segmentStore.findIndex(x => x.invokeId === id);
             if (segmentIndex !== -1) {
                 this.segmentStore.splice(segmentIndex, 1);
@@ -360,5 +417,12 @@ export class BacnetDriver {
             this.invokeId = 1;
         }
         return this.invokeId++;
+    }
+
+    private getProcessId() {
+        if (this.processId > 255) {
+            this.processId = 1;
+        }
+        return this.processId++;
     }
 }

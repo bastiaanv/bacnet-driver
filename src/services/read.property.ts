@@ -31,6 +31,10 @@ export class ReadProperty {
             return this.readList(buffer);
         }
         
+        return this.readValue(buffer);
+    }
+
+    public static readValue(buffer: TransporterBuffer): any {
         const applicationTag = ApplicationProtocolDataUnit.decodeTag(buffer);
         if (applicationTag.tagNumber === ApplicationTags.UNSIGNED_INTEGER << 4 ||
             applicationTag.tagNumber === ApplicationTags.ENUMERATED << 4) {
@@ -38,40 +42,66 @@ export class ReadProperty {
         }
         
         if (applicationTag.tagNumber === ApplicationTags.REAL << 4) {
-            return this.readFloat(buffer);
+            return this.readFloat(buffer, applicationTag.length);
         }
 
         if (applicationTag.tagNumber === ApplicationTags.BOOLEAN << 4) {
-            return this.readBoolean(applicationTag.length);
+            return this.readBoolean(buffer, applicationTag.length);
         }
 
         if (applicationTag.tagNumber === ApplicationTags.CHARACTER_STRING << 4) {
             return this.readString(buffer, applicationTag.length);
         }
 
-        return null;
+        if (applicationTag.tagNumber === ApplicationTags.BIT_STRING << 4) {
+            return this.readBitString(buffer);
+        }
+
+        return null
     }
 
     private static readUInt(buffer: TransporterBuffer, tagLength: number): ReadNumber {
-        return { value: buffer.buffer.readUIntBE(buffer.offset, tagLength) };
+        const value =  buffer.buffer.readUIntBE(buffer.offset, tagLength);
+        buffer.offset += tagLength;
+    
+        return { value };
     }
 
-    private static readFloat(buffer: TransporterBuffer): ReadNumber {
-        return { value: buffer.buffer.readFloatBE(buffer.offset) };
+    private static readFloat(buffer: TransporterBuffer, tagLength: number): ReadNumber {
+        const value = buffer.buffer.readFloatBE(buffer.offset);
+        buffer.offset += tagLength;
+
+        return { value };
     }
 
-    private static readBoolean(tag: number): ReadNumber {
+    private static readBoolean(buffer: TransporterBuffer, tag: number): ReadNumber {
+        buffer.offset++;
+
         return { value: (tag & 0x01) };
     }
 
     private static readString(buffer: TransporterBuffer, tagLength: number): ReadString {
-        return { value: buffer.buffer.toString('utf8', buffer.offset+1, tagLength) };
+        const value = buffer.buffer.toString('utf8', buffer.offset+1, tagLength);
+        buffer.offset += tagLength;
+
+        return { value };
+    }
+
+    private static readBitString(buffer: TransporterBuffer): ReadNumber[] {
+        const unusedBits = buffer.buffer[buffer.offset++];
+        const encodedBitString = buffer.buffer[buffer.offset++];
+
+        const output: ReadNumber[] = [];
+        for (let i = 0; i < 8-unusedBits; i++) {
+            output.push({ value: (encodedBitString & (1 << i)) })
+        }
+
+        return output;
     }
 
     private static readList(buffer: TransporterBuffer): any[] {
         const result: any[] = [];
         const objectIdentifierMask = ApplicationTags.OBJECTIDENTIFIER << 4;
-
         const end = buffer.buffer.length -1;
         while (buffer.offset < end) {
             const applicationTag = ApplicationProtocolDataUnit.decodeTag(buffer);

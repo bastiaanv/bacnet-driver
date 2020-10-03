@@ -57,9 +57,16 @@ export class AbstractSytaxtNotation {
                 reject('Unknown encoding type...');
         }
     }
+
     public static encodeContextObjectId(buffer: TransporterBuffer, tagNumber: number, objectType: number, instance: number): void {
         this.encodeTag(buffer, tagNumber, 4, true);
         this.encodeBacnetObjectId(buffer, objectType, instance);
+    }
+
+    public static encodeContextBoolean(buffer: TransporterBuffer, tagNumber: number, booleanValue: boolean) {
+        this.encodeTag(buffer, tagNumber, 1, true);
+        buffer.buffer.writeUInt8(booleanValue ? 1 : 0, buffer.offset);
+        buffer.offset += 1;
     }
 
     public static encodeContextUnsigned(buffer: TransporterBuffer, tagNumber: number, value: number): void {
@@ -71,9 +78,9 @@ export class AbstractSytaxtNotation {
     }
 
     public static encodeContextEnumerated(buffer: TransporterBuffer, tagNumber: number, value: number) {
-        this.encodeTag(buffer, tagNumber, this.getUnsignedLength(value), true);
-
         const length = this.getUnsignedLength(value);
+        this.encodeTag(buffer, tagNumber, length, true);
+
         buffer.buffer.writeUIntBE(value, buffer.offset, length);
         buffer.offset += length;
     }

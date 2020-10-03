@@ -12,6 +12,7 @@ A BACnet protocol stack written in pure typescript with RXJS and promises. BACne
 - [Features](#Features)
 - [API Basic](#API--Basic)
     - [Read property](#Read-Property)
+    - [Subscribe COV](#Subscribe-COV)
     - [Write property](#Write-Property)
     - [Who Is](#Who-Is)
 - [API Extended](#API---Extended)
@@ -45,6 +46,7 @@ npm i @bastiaanv@bacnet-driver
 | writeProperty | No      | Partly     |
 | readMultiple  | No      | No         |
 | writeMultiple | No      | No         |
+| Subscribe COV | No      | Yes        |
 
 readProperty: This service can only read unsigned integers, floats, booleans, strings and ObjectIndentifiers
 
@@ -73,7 +75,7 @@ bacnetDriver.readProperty({
 |--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
 | `options`                | object |                                                                                                                    |
 | `options.address`        | string | IP address of the target device.                                                                                   |
-| `options.deviceId`       | number | The device ID to read.                                                                                             |
+| `options.deviceId`       | number | The device ID of the target device.                                                                                |
 | `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
 | `options.objectInstance` | number | The object instance to read.                                                                                       |
 | `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
@@ -82,6 +84,39 @@ The returned value depens on the propertyID you have read. This is why the this 
 | Name       | Type                                                                                      | Description |
 |------------|-------------------------------------------------------------------------------------------|-------------|
 | `response` | Promise\<any\> \| Promise\<ReadString\> \| Promise\<ReadNumber\> \| Promise\<ReadObject\> |             |
+
+### Subscribe COV
+The Subscribe COV command subscribes your application to a specific object in the BACNET device. If a value in the object changes, a [covObservable](#Cov-Subject) will be fired.
+#### Example
+```js
+import { BacnetDriver, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDiver({});
+bacnetDriver.subscribeCov({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    monitoredObject: { type: ObjectType.ANALOG_INPUT, instance: 8 },
+    cancellable: { issueConfirmedNotifications: false, lifetime: 120 }
+}).then(console.log)
+```
+#### Parameters - `COVOptions`
+| Name                                              | Type    | Description                                                                       |
+|---------------------------------------------------|---------|-----------------------------------------------------------------------------------|
+| `options`                                         | object  |                                                                                   |
+| `options.address`                                 | string  | IP address of the target device.                                                  |
+| `options.deviceId`                                | number  | The device ID of the target device.                                               |
+| `options.monitoredObject`                         | object  |                                                                                   |
+| `options.monitoredObject.type`                    | number  | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum. |
+| `options.monitoredObject.instance`                | number  | The object instance to read.                                                      |
+| `options.processId`                               | number? | The process ID to use. When not given, the bacnet driver will generate one.       |
+| `options.cancellable`                             | object? | Optional                                                                          |
+| `options.cancellable.issueConfirmedNotifications` | boolean | Determines is the subscription should use confirmed or unconfirmed notifications  |
+| `options.cancellable.lifetime`                    | number  | The lifetime of the subscription                                                  |
+#### Returns
+| Name       | Type            | Description |
+|------------|-----------------|-------------|
+| `response` | Promise\<void\> |             |
+
 
 ### Write Property
 The writeProperty command writes a single property of an object to a device. Please note, that the following `ApplicationTags` are not supported yet: TIMESTAMP, OCTET_STRING, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
@@ -106,7 +141,7 @@ bacnetDriver.writeProperty({
 |--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
 | `options`                | object |                                                                                                                    |
 | `options.address`        | string | IP address of the target device.                                                                                   |
-| `options.deviceId`       | number | The device ID to read.                                                                                             |
+| `options.deviceId`       | number | The device ID of the target device.                                                                                |
 | `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
 | `options.objectInstance` | number | The object instance to read.                                                                                       |
 | `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
@@ -150,7 +185,7 @@ bacnetDriver.readObjectList({
 |--------------------------|--------|--------------------------------------|
 | `options`                | object |                                      |
 | `options.address`        | string | IP address of the target device.     |
-| `options.deviceId`       | number | The device ID to read.               |
+| `options.deviceId`       | number | The device ID of the target device.   |
 #### Returns
 | Name       | Type                  | Description |
 |------------|-----------------------|-------------|
@@ -170,11 +205,42 @@ bacnetDrive.iAmObservable.subscribe(console.log);
 bacnetDriver.whoIs();
 ```
 #### Returns - `IAmEvent`
-| Name                | Type   | Description                      |
-|---------------------|--------|----------------------------------|
-| `response`          | object |                                  |
-| `response.address`  | string | IP address of the target device. |
-| `response.deviceId` | number | The device ID to read.           |
+| Name                | Type   | Description                         |
+|---------------------|--------|-------------------------------------|
+| `response`          | object |                                     |
+| `response.address`  | string | IP address of the target device.    |
+| `response.deviceId` | number | The device ID of the target device. |
+
+### Cov-Subject
+This subject will fire, when a object in the BACNET device has been changed and the Bacnet driver has a active subscription, see more (Subscribe Cov)[#Subscribe-Cov].
+#### Example
+```js
+import { BacnetDriver, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDiver({});
+bacnetDriver.covObservable.subscribe(console.log)
+bacnetDriver.subscribeCov({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    monitoredObject: { type: ObjectType.ANALOG_INPUT, instance: 8 },
+    cancellable: { issueConfirmedNotifications: false, lifetime: 120 }
+}).then(console.log)
+```
+#### Returns - `COVEvent`
+| Name                                | Type   | Description                                                                                                  |
+|-------------------------------------|--------|--------------------------------------------------------------------------------------------------------------|
+| `response`                          | object |                                                                                                              |
+| `response.processId`                | number | The process id used for this subscription.                                                                   |
+| `response.device`                   | object |                                                                                                              |
+| `response.device.instance`          | number | The instance of the target device.                                                                           |
+| `response.device.type`              | number | The object ID of the target device. NOTE: this value will always be 8, since it is given by the BACNET specs |
+| `response.monitoredObject`          | object |                                                                                                              |
+| `response.monitoredObject.type`     | number | The object type of the changed object                                                                        |
+| `response.monitoredObject.instance` | number | The object instance of the changed object.                                                                   |
+| `response.timeRemaining`            | number | The remaining time of the subscription in seconds                                                            |
+| `response.cov`                      | array  |                                                                                                              |
+| `response.cov.propertyType`         | number | The property type for the changed value                                                                      |
+| `response.cov.value`                | any    | The new value of the changed property. The type depends on the property.                                     |
 
 ### Error Subject
 This subject will fire, when the UDP transporter has failed to send your message. This can occure when you gave this transporter an invalid IP address.
