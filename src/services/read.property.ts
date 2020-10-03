@@ -81,7 +81,7 @@ export class ReadProperty {
     }
 
     private static readString(buffer: TransporterBuffer, tagLength: number): ReadString {
-        const value = buffer.buffer.toString('utf8', buffer.offset+1, tagLength);
+        const value = buffer.buffer.toString('utf8', buffer.offset+1, buffer.offset + tagLength);
         buffer.offset += tagLength;
 
         return { value };
