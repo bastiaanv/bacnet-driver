@@ -57,7 +57,7 @@ export class ApplicationProtocolDataUnit {
 
     public static decodeTag(buffer: TransporterBuffer): {tagNumber: number, length: number} {
         // Check if tag is an extended value
-        if ((buffer.buffer[buffer.offset] & 0x08) > 0) {
+        if ((buffer.buffer[buffer.offset] & 0x05) > 0) {
             const part1 = buffer.buffer[buffer.offset++];
             const length = buffer.buffer[buffer.offset++];
 
