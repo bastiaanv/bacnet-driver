@@ -73,7 +73,7 @@ export class AbstractSytaxtNotation {
         const length = this.getUnsignedLength(value);
         this.encodeTag(buffer, tagNumber, length, true);
 
-        buffer.buffer.writeIntBE(value, buffer.offset, length);
+        buffer.buffer.writeUIntBE(value, buffer.offset, length);
         buffer.offset += length;
     }
 
