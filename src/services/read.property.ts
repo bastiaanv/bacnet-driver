@@ -36,6 +36,8 @@ export class ReadProperty {
 
     public static readValue(buffer: TransporterBuffer): any {
         const applicationTag = ApplicationProtocolDataUnit.decodeTag(buffer);
+        console.log("Read value as:")
+        console.log(applicationTag)
         if (applicationTag.tagNumber === ApplicationTags.UNSIGNED_INTEGER << 4 ||
             applicationTag.tagNumber === ApplicationTags.ENUMERATED << 4) {
             return this.readUInt(buffer, applicationTag.length);
