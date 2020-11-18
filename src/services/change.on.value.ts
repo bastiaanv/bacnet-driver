@@ -1,4 +1,4 @@
-import { APPLICATION_TAG_LENGTH, ASN1_MAX_INSTANCE } from '..';
+import { APPLICATION_TAG_LENGTH, APPLICATION_TAG_MASK, ASN1_MAX_INSTANCE } from '..';
 import { AbstractSytaxtNotation } from '../asn';
 import { COVEvent } from '../interfaces/events/cov/change.on.value.event';
 import { COVOptions } from '../interfaces/events/cov/change.on.value.options';
@@ -48,6 +48,11 @@ export class COV {
             const propertyTypeLength = propertyTypeContextTag & APPLICATION_TAG_LENGTH;
             const propertyType = buffer.buffer.readUIntBE(buffer.offset, propertyTypeLength);
             buffer.offset += propertyTypeLength + 1; // Also skip opening tag
+
+            if (propertyType === 85) {
+                const value = buffer.buffer[buffer.offset];
+                console.log({ tagNumber: (value & APPLICATION_TAG_MASK), length: (value & APPLICATION_TAG_LENGTH) })
+            }
 
             const value = ReadProperty.readValue(buffer);
             buffer.offset++; // Skip closing tag
