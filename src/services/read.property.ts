@@ -38,12 +38,10 @@ export class ReadProperty {
         const applicationTag = ApplicationProtocolDataUnit.decodeTag(buffer);
         if (applicationTag.tagNumber === ApplicationTags.UNSIGNED_INTEGER << 4 ||
             applicationTag.tagNumber === ApplicationTags.ENUMERATED << 4) {
-                console.log('Read uint')
             return this.readUInt(buffer, applicationTag.length);
         }
         
         if (applicationTag.tagNumber === ApplicationTags.REAL << 4) {
-            console.log('Read float')
             return this.readFloat(buffer, applicationTag.length);
         }
 

@@ -31,6 +31,7 @@ export class BacnetDriver {
     // RXJS Subjects
     public readonly iAmObservable: Subject<IAmEvent> = new Subject<IAmEvent>();
     public readonly covObservable: Subject<COVEvent> = new Subject<COVEvent>();
+    public readonly alarmingObservable: Subject<COVEvent> = new Subject<any>();
     public readonly errorObservable: Subject<Error> = new Subject<Error>();
 
     private readonly foundDevices: FoundDevice[] = [];
@@ -59,7 +60,6 @@ export class BacnetDriver {
 
     /***
      * The whoIs command discovers all BACNET devices in a network.
-     * @function bacstack.whoIs
      * @fires iAm
      */
     public whoIs(): void {
@@ -79,10 +79,7 @@ export class BacnetDriver {
     }
 
     public readProperty(options: ReadPropertyOptions): Promise<any> {
-        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
-        if (!device) {
-            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
-        }
+        const device = this.getDevice(options.address, options.deviceId);
 
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
@@ -109,10 +106,7 @@ export class BacnetDriver {
     }
 
     public writeProperty(options: WritePropertyOptions): Promise<void> {
-        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
-        if (!device) {
-            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
-        }
+        const device = this.getDevice(options.address, options.deviceId);
         
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
@@ -139,10 +133,7 @@ export class BacnetDriver {
     }
 
     public subscribeCov(options: COVOptions): Promise<void> {
-        const device = this.foundDevices.find((x) => x.address === options.address && x.deviceId === options.deviceId);
-        if (!device) {
-            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
-        }
+        const device = this.getDevice(options.address, options.deviceId);
         
         const destination: NpduDestination = {
             networkAddress: device!.networkAddress,
@@ -167,6 +158,15 @@ export class BacnetDriver {
             // Add callback timeout
             this.addCallback(invokeId, resolve, reject);
         });
+    }
+
+    private getDevice(address: string, deviceId: number): FoundDevice {
+        const device = this.foundDevices.find((x) => x.address === address && x.deviceId === deviceId);
+        if (!device) {
+            throw new Error('This device has not been found in the bacnet network, therefore a message could not been send. Make sure to call the WhoIs first, before making a request');
+        }
+
+        return device;
     }
 
     private receiveData(buffer: Buffer, address: string): void {
@@ -419,7 +419,7 @@ export class BacnetDriver {
         return this.invokeId++;
     }
 
-    private getProcessId() {
+    public getProcessId() {
         if (this.processId > 255) {
             this.processId = 1;
         }

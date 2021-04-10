@@ -1,6 +1,6 @@
-import { BacnetDriver } from '../src/index';
+import { BacnetDriverExtended } from '../src/index';
 
-const bacnet = new BacnetDriver({});
+const bacnet = new BacnetDriverExtended({});
 bacnet.errorObservable.subscribe(console.log);
 bacnet.iAmObservable.subscribe(console.log);
 bacnet.whoIs();

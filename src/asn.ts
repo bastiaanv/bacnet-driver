@@ -53,6 +53,9 @@ export class AbstractSytaxtNotation {
             case ApplicationTags.CLOSING_TAG:
                 return this.encodeTag(buffer, +value.value, 7, true);
 
+            case ApplicationTags.OCTET_STRING:
+                return this.encodeApplicationOctetString(buffer, value.value);
+
             default:
                 reject('Unknown encoding type...');
         }
@@ -133,6 +136,15 @@ export class AbstractSytaxtNotation {
 
     private static encodeApplicationBoolean(buffer: TransporterBuffer, value: boolean): void {
         this.encodeTag(buffer, ApplicationTags.BOOLEAN, value ? 1 : 0, false);
+    }
+
+    private static encodeApplicationOctetString(buffer: TransporterBuffer, value: number[]): void {
+        buffer.buffer[buffer.offset++] = 0x65;
+        buffer.buffer[buffer.offset++] = value.length;
+
+        for(const octet of value) {
+            buffer.buffer[buffer.offset++] = octet;
+        }
     }
 
     private static encodeApplicationUnsigned(buffer: TransporterBuffer, value: number) {

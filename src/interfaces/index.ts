@@ -5,3 +5,5 @@ export * from './events/i.am';
 export * from './events/readProperty/read.number';
 export * from './events/readProperty/read.string';
 export * from './events/readProperty/read.object';
+export * from './extendedDriver/set.alarming';
+export * from './extendedDriver/activate.notification.class';

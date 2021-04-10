@@ -2,7 +2,6 @@
 A BACnet protocol stack written in pure typescript with RXJS and promises. BACnet is a protocol to interact with building automation devices defined by ASHRAE. Big shout out to FH1CH for making the [node-bacstack library](https://github.com/fh1ch/node-bacstack). A lot of priniciples there, are used here.
 
 <p align="center">
-<a href="https://www.codacy.com/manual/bastiankpn7800/bacnet-driver?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=bastiaanv/bacnet-driver&amp;utm_campaign=Badge_Grade"><img src="https://app.codacy.com/project/badge/Grade/1c0c7887e2f841218936eefd65768a22"/></a>
 <a href="https://github.com/bastiaanv/bacnet-driver/actions?query=workflow%3A%22Build+npm+package%22"><img src="https://github.com/bastiaanv/bacnet-driver/workflows/Build%20npm%20package/badge.svg"/></a>
 </p>
 
@@ -11,14 +10,19 @@ A BACnet protocol stack written in pure typescript with RXJS and promises. BACne
 - [Usage](#Usage)
 - [Features](#Features)
 - [API Basic](#API--Basic)
-    - [Read property](#Read-Property)
-    - [Subscribe COV](#Subscribe-COV)
-    - [Write property](#Write-Property)
     - [Who Is](#Who-Is)
+    - [Read property](#Read-Property)
+    - [Write property](#Write-Property)
+    - [Subscribe COV](#Subscribe-COV)
 - [API Extended](#API---Extended)
     - [Read Object List](#Read-Object-List)
+    - [Read Present Value](#Read-Present-Value)
+    - [Activate Notification Class](#Activate-Notification-Class)
+    - [Set Alarming](#Set-Alarming)
 - [Events](#Events)
     - [I Am Subject](#I-Am-Subject)
+    - [Cov Subject](#Cov-Subject)
+    - [Alarm Subject](#Alarm-Subject)
     - [Error Subject](#Error-Subject)
 - [License](#License)
 
@@ -32,7 +36,7 @@ registry=https://npm.pkg.github.com/bastiaanv
 
 2) Running the following npm command:
 ```
-npm i @bastiaanv@bacnet-driver
+npm i @bastiaanv/bacnet-driver
 ```
 
 ## Features
@@ -53,7 +57,22 @@ readProperty: This service can only read unsigned integers, floats, booleans, st
 writeProperty: Unsupported types: TIMESTAMP, OCTET_STRING, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
 
 ## API - Basic
-For an exmaple, please take a look at the `example` folder within this project.
+
+### Who Is
+The whoIs command discovers all BACNET devices in a network. BACNET devices who has received this command will sent a [IAm command](#I-Am-Subject).
+#### Example
+```js
+import { BacnetDriver } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriver({});
+bacnetDriver.whoIs();
+```
+#### Parameters
+None
+#### Returns
+| Name       | Type            | Description                               |
+|------------|-----------------|-------------------------------------------|
+| `response` | void            | Can trigger [IAm commands](#I-Am-Subject) |
 
 ### Read Property
 The readProperty command reads a single property of an object from a device.
@@ -68,7 +87,7 @@ bacnetDriver.readProperty({
     objectType: ObjectType.ANALOG_INPUT,
     objectInstance: 1,
     propertyId: PropertyIdentifier.PRESENT_VALUE
-}).then(console.log)
+}).then(console.log);
 ```
 #### Parameters - `ReadPropertyOptions`
 | Name                     | Type   | Description                                                                                                        |
@@ -85,6 +104,41 @@ The returned value depens on the propertyID you have read. This is why the this 
 |------------|-------------------------------------------------------------------------------------------|-------------|
 | `response` | Promise\<any\> \| Promise\<ReadString\> \| Promise\<ReadNumber\> \| Promise\<ReadObject\> |             |
 
+### Write Property
+The writeProperty command writes a single property of an object to a device. Please note, that the following `ApplicationTags` are not supported (yet): TIMESTAMP, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
+#### Example
+```js
+import { BacnetDriver, ObjectType, PropertyIdentifier, ApplicationTags } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDiver({});
+bacnetDriver.writeProperty({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    objectType: ObjectType.ANALOG_INPUT,
+    objectInstance: 1,
+    propertyId: PropertyIdentifier.OUT_OF_SERVICE,
+    values: [
+        {type: ApplicationTags.BOOLEAN, value: true}
+    ]
+}).then(console.log);
+```
+#### Parameters - `WritePropertyOptions`
+| Name                     | Type   | Description                                                                                                        |
+|--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
+| `options`                | object |                                                                                                                    |
+| `options.address`        | string | IP address of the target device.                                                                                   |
+| `options.deviceId`       | number | The device ID of the target device.                                                                                |
+| `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
+| `options.objectInstance` | number | The object instance to read.                                                                                       |
+| `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
+| `options.values`         | array  |                                                                                                                    |
+| `options.values.type`    | number | The data-type of the value to be written. The `ApplicationTags` could be used from the bacnetDriver enum.          |
+| `options.values.value`   | any    | The actual value to be written.                                                                                    |
+#### Returns
+| Name       | Type            | Description |
+|------------|-----------------|-------------|
+| `response` | Promise\<void\> |             |
+
 ### Subscribe COV
 The Subscribe COV command subscribes your application to a specific object in the BACNET device. If a value in the object changes, a [covObservable](#Cov-Subject) will be fired.
 #### Example
@@ -97,7 +151,7 @@ bacnetDriver.subscribeCov({
     deviceId: 2000,
     monitoredObject: { type: ObjectType.ANALOG_INPUT, instance: 8 },
     cancellable: { issueConfirmedNotifications: false, lifetime: 120 }
-}).then(console.log)
+}).then(console.log);
 ```
 #### Parameters - `COVOptions`
 | Name                                              | Type    | Description                                                                       |
@@ -117,54 +171,6 @@ bacnetDriver.subscribeCov({
 |------------|-----------------|-------------|
 | `response` | Promise\<void\> |             |
 
-
-### Write Property
-The writeProperty command writes a single property of an object to a device. Please note, that the following `ApplicationTags` are not supported yet: TIMESTAMP, OCTET_STRING, OBJECTIDENTIFIER, COV_SUBSCRIPTION, READ_ACCESS_RESULT, READ_ACCESS_SPECIFICATION
-#### Example
-```js
-import { BacnetDriver, ObjectType, PropertyIdentifier, ApplicationTags } from '@bastiaanv/bacnet-driver';
-
-const bacnetDriver = new BacnetDiver({});
-bacnetDriver.writeProperty({
-    address: '192.168.1.2',
-    deviceId: 2000,
-    objectType: ObjectType.ANALOG_INPUT,
-    objectInstance: 1,
-    propertyId: PropertyIdentifier.OUT_OF_SERVICE,
-    values: [
-        {type: ApplicationTags.BOOLEAN, value: true}
-    ]
-}).then(console.log)
-```
-#### Parameters - `WritePropertyOptions`
-| Name                     | Type   | Description                                                                                                        |
-|--------------------------|--------|--------------------------------------------------------------------------------------------------------------------|
-| `options`                | object |                                                                                                                    |
-| `options.address`        | string | IP address of the target device.                                                                                   |
-| `options.deviceId`       | number | The device ID of the target device.                                                                                |
-| `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                                  |
-| `options.objectInstance` | number | The object instance to read.                                                                                       |
-| `options.propertyId`     | number | The property ID in the specified object to read.The `PropertyIdentifier` could be used from the bacnetDriver enum. |
-| `options.values`         | array  |                                                                                                                    |
-| `options.values.type`    | number | The data-type of the value to be written. The `ApplicationTags` could be used from the bacnetDriver enum.          |
-| `options.values.value`   | any    | The actual value to be written.                                                                                    |
-#### Returns
-| Name       | Type            | Description |
-|------------|-----------------|-------------|
-| `response` | Promise\<void\> |             |
-
-### Who Is
-The whoIs command discovers all BACNET devices in a network. BACNET devices who has received this command will sent a [IAm command](#I-Am-Subject).
-#### Example
-```js
-import { BacnetDriver } from '@bastiaanv/bacnet-driver';
-
-const bacnetDriver = new BacnetDriver({});
-bacnetDriver.whoIs();
-```
-#### Parameters
-None
-
 ## API - Extended
 The BacnetDriverExtended has predefined BACNET methods for you to use, like: `readObjectList` or `readPresentValue`. Each of these methods make use of the `readProperty` or `writeProperty` method.
 
@@ -178,21 +184,127 @@ const bacnetDriver = new BacnetDriverExtended({});
 bacnetDriver.readObjectList({
     address: '192.168.1.2',
     deviceId: 2000
-}).then(console.log)
+}).then(console.log);
 ```
 #### Parameters
 | Name                     | Type   | Description                          |
 |--------------------------|--------|--------------------------------------|
 | `options`                | object |                                      |
 | `options.address`        | string | IP address of the target device.     |
-| `options.deviceId`       | number | The device ID of the target device.   |
+| `options.deviceId`       | number | The device ID of the target device.  |
 #### Returns
 | Name       | Type                  | Description |
 |------------|-----------------------|-------------|
 | `response` | Promise<ReadObject[]> |             |
 
+### Read Present Value
+The readPresentValue command reads the object list of a BACNET device.
+#### Example
+```js
+import { BacnetDriverExtended, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriverExtended({});
+bacnetDriver.readPresentValue({
+    address: '192.168.1.2',
+    deviceId: 2000,
+    objectType: ObjectType.ANALOG_INPUT,
+    objectInstance: 100,
+}).then(console.log);
+```
+#### Parameters
+| Name                     | Type   | Description                                                                       |
+|--------------------------|--------|-----------------------------------------------------------------------------------|
+| `options`                | object |                                                                                   |
+| `options.address`        | string | IP address of the target device.                                                  |
+| `options.deviceId`       | number | The device ID of the target device.                                               |
+| `options.objectType`     | number | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum. |
+| `options.objectInstance` | number | The object instance to read.                                                      |
+#### Returns
+| Name       | Type                  | Description |
+|------------|-----------------------|-------------|
+| `response` | Promise<ReadNumber>   |             |
+
+### Activate Notification Class
+The activateNotificationClass command subscribes your application to limit alarms. This functions should be combined [setAlarming](#Set-Alarming) with the corresponding BACnet objects.
+#### Example
+```js
+import { BacnetDriverExtended, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriverExtended({});
+bacnet.activateNotificationClasses({
+    address: '192.168.0.1',
+    deviceId: 1,
+    objectInstances: [ 100, 101, 102],
+    ipAddress: '192.168.0.254',
+}).then(() => { /* REST OF CODE */ });
+```
+#### Parameters - ActivateNotificationClass
+| Name                             | Type     | Description                                                                                                  |
+|----------------------------------|----------|--------------------------------------------------------------------------------------------------------------|
+| `options`                        | object   |                                                                                                              |
+| `options.address`                | string   | IP address of the target device.                                                                             |
+| `options.deviceId`               | number   | The device ID of the target device.                                                                          |
+| `options.objectInstances`        | number[] | The notification classes that should be activated.                                                           |
+| `options.ipAddress`              | string   | The IP address of this devices's BACnet interface                                                            |
+| `options.port`                   | number?  | The port of this device's BACnet interface. Default: 0xBAC0                                                  |
+| `options.fromTime`               | Date?    | The start date from which to recieve alarm notifications. Default: 00:00:00.000                              |
+| `options.toTime`                 | Date?    | The end date from which to recieve alarm notifications. Default: 23:59:59.000                                |
+| `options.transition`             | object?  |                                                                                                              |
+| `options.transition.toNormal`    | boolean  | Determines whether to recieve an alarm notification when the state changes to Normal state. Default: true    |
+| `options.transition.toOffNormal` | boolean  | Determines whether to recieve an alarm notification when the state changes to OffNormal state. Default: true |
+| `options.transition.toFault`     | boolean  | Determines whether to recieve an alarm notification when the state changes to Fault state. Default: true     |
+| `options.days`                   | object?  |                                                                                                              |
+| `options.days.monday`            | boolean  | Determines whether to recieve an alarm notification on Mondays. Default: true                                |
+| `options.days.tuesday`           | boolean  | Determines whether to recieve an alarm notification on Tuesdays. Default: true                               |
+| `options.days.wednesday`         | boolean  | Determines whether to recieve an alarm notification on Wednesdays. Default: true                             |
+| `options.days.thursday`          | boolean  | Determines whether to recieve an alarm notification on Thursdays. Default: true                              |
+| `options.days.friday`            | boolean  | Determines whether to recieve an alarm notification on Fridays. Default: true                                |
+| `options.days.saturday`          | boolean  | Determines whether to recieve an alarm notification on Saturdays. Default: true                              |
+| `options.days.sunday`            | boolean  | Determines whether to recieve an alarm notification on Sundays. Default: true                                |
+
+#### Returns
+| Name       | Type                  | Description                                                                                        |
+|------------|-----------------------|----------------------------------------------------------------------------------------------------|
+| `response` | Promise<void>         | Combined with [an active limit object](#Set-Alarming) can trigger an [Alarm event](#Alarm-Subject) |
+
+### Set Alarming
+The setAlarming command subscribes your application to limit alarms. This functions should be combined [activateNotificationClass](#Activate-Notification-Class) with the corresponding BACnet notification classes.
+#### Example
+```js
+import { BacnetDriverExtended, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriverExtended({});
+bacnet.setAlarming({
+    address: '192.168.0.1',
+    deviceId: 1,
+    objectType: ObjectType.ANALOG_INPUT
+    objectInstance: 1,
+    lowlimit: { enable: true, overwriteLimitValue: 0 },
+    highlimit: { enable: true, overwriteLimitValue: 100 },
+}).then(() => { /* REST OF CODE */ });
+```
+#### Parameters - SetAlarming
+| Name                                    | Type     | Description                                                                                                  |
+|-----------------------------------------|----------|--------------------------------------------------------------------------------------------------------------|
+| `options`                               | object   |                                                                                                              |
+| `options.address`                       | string   | IP address of the target device.                                                                             |
+| `options.deviceId`                      | number   | The device ID of the target device.                                                                          |
+| `options.objectType`                    | number   | The object ID to read. The `ObjectType` could be used from the bacnetDriver enum.                            |
+| `options.objectInstance`                | number   | The object instance to read.                                                                                 |
+| `options.lowLimit`                      | object   |                                                                                                              |
+| `options.lowLimit.enable`               | boolean  | Enables or disables low limit alarming                                                                       |
+| `options.lowLimit.overwriteLimitValue`  | number?  | Optional parameter to overwrite the current low limit alarming value.                                        |
+| `options.highLimit`                     | object   |                                                                                                              |
+| `options.highLimit.enable`              | boolean  | Enables or disables hihg limit alarming                                                                      |
+| `options.highLimit.overwriteLimitValue` | number?  | Optional parameter to overwrite the current low high alarming value.                                         |
+
+#### Returns
+| Name       | Type                  | Description                                                                                                                |
+|------------|-----------------------|----------------------------------------------------------------------------------------------------------------------------|
+| `response` | Promise<void>         | Combined with [an activated notification class](#Activate-Notification-Class) can trigger an [Alarm event](#Alarm-Subject) |
+
 ## Events
-This library makes use of [RXJS](https://rxjs-dev.firebaseapp.com/guide/overview) library. 
+This library makes use of [RXJS](https://rxjs-dev.firebaseapp.com/guide/overview) library for event handling.
 
 ### I Am Subject
 This subject will fire, when a devices react to the [WhoIs command](#Who-Is) over the network or when a BACNET device has booted.
@@ -211,7 +323,7 @@ bacnetDriver.whoIs();
 | `response.address`  | string | IP address of the target device.    |
 | `response.deviceId` | number | The device ID of the target device. |
 
-### Cov-Subject
+### Cov Subject
 This subject will fire, when a object in the BACNET device has been changed and the Bacnet driver has a active subscription, see more (Subscribe Cov)[#Subscribe-Cov].
 #### Example
 ```js
@@ -241,6 +353,33 @@ bacnetDriver.subscribeCov({
 | `response.cov`                      | array  |                                                                                                              |
 | `response.cov.propertyType`         | number | The property type for the changed value                                                                      |
 | `response.cov.value`                | any    | The new value of the changed property. The type depends on the property.                                     |
+
+### Alarm Subject
+This subject will fire, when a object in the BACNET device has changed its state. From normal -> off normal, for example. In order for this to work, the correct Notification class needs to be activated (see, [activateNotificationClass](#Activate-Notification-Class)) and the BACnet object need to have limit alarm enabled (see [setAlarming](#Set-Alarming)). NOTE: CURRENT THIS IS NOT IMPLEMENTED YET...
+#### Example
+```js
+import { BacnetDriverExtended, ObjectType } from '@bastiaanv/bacnet-driver';
+
+const bacnetDriver = new BacnetDriverExtended({});
+bacnetDriver.alarmingObservable.subscribe(console.log)
+bacnet.setAlarming({
+    address: '192.168.0.1',
+    deviceId: 1,
+    objectType: ObjectType.ANALOG_INPUT
+    objectInstance: 1,
+    lowlimit: { enable: true, overwriteLimitValue: 0 },
+    highlimit: { enable: true, overwriteLimitValue: 100 },
+});
+bacnet.activateNotificationClasses({
+    address: '192.168.0.1',
+    deviceId: 1,
+    objectInstances: [ 100, 101, 102],
+    ipAddress: '192.168.0.254',
+});
+```
+#### Returns - `AlarmingEvent` - TODO
+| Name                                | Type   | Description                                                                                                  |
+|-------------------------------------|--------|--------------------------------------------------------------------------------------------------------------|
 
 ### Error Subject
 This subject will fire, when the UDP transporter has failed to send your message. This can occure when you gave this transporter an invalid IP address.
