@@ -22,6 +22,8 @@ import { WritePropertyOptions } from './interfaces/events/writeProperty/write.pr
 import { COV } from './services/change.on.value';
 import { COVEvent } from './interfaces/events/cov/change.on.value.event';
 import { COVOptions } from './interfaces/events/cov/change.on.value.options';
+import { Notification } from './services/notification';
+import { NotificationEvent } from './interfaces/events/notification/notification.event';
 
 export class BacnetDriver {
     private readonly transporter: UdpTransporter;
@@ -31,7 +33,7 @@ export class BacnetDriver {
     // RXJS Subjects
     public readonly iAmObservable: Subject<IAmEvent> = new Subject<IAmEvent>();
     public readonly covObservable: Subject<COVEvent> = new Subject<COVEvent>();
-    public readonly alarmingObservable: Subject<COVEvent> = new Subject<any>();
+    public readonly alarmingObservable: Subject<NotificationEvent> = new Subject<NotificationEvent>();
     public readonly errorObservable: Subject<Error> = new Subject<Error>();
 
     private readonly foundDevices: FoundDevice[] = [];
@@ -330,6 +332,14 @@ export class BacnetDriver {
         } else if (service === UnconfirmedServiceChoice.UNCONFIRMED_COV_NOTIFICATION) {
             const result = COV.decode(buffer);
             this.covObservable.next(result);
+
+        } else if (service === UnconfirmedServiceChoice.UNCONFIRMED_EVENT_NOTIFICATION) {
+            const result = Notification.decode(buffer);
+            if (!result) {
+                return this.logger.debug('Received invalid notification message -> Drop package');
+            }
+
+            this.alarmingObservable.next(result);
 
         } else {
             return this.logger.debug('UNCONFIRMED_SERVICES: Received message for unsupported service -> Drop package');
