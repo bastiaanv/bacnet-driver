@@ -377,9 +377,24 @@ bacnet.activateNotificationClasses({
     ipAddress: '192.168.0.254',
 });
 ```
-#### Returns - `AlarmingEvent` - TODO
-| Name                                | Type   | Description                                                                                                  |
-|-------------------------------------|--------|--------------------------------------------------------------------------------------------------------------|
+#### Returns - `AlarmingEvent`
+| Name                         | Type   | Description                                                                                              |
+|------------------------------|--------|----------------------------------------------------------------------------------------------------------|
+| `response`                   | object |                                                                                                          |
+| `response.processNumber`     | number | The processNumber of the subscription                                                                    |
+| `response.device`            | object | The device from which the notification came from                                                         |
+| `response.device.instance`   | number | The instance number of the device                                                                        |
+| `response.device.type`       | number | The type of the device (which will always be 8)                                                          |
+| `response.object`            | object | The object from which the notification came from                                                         |
+| `response.object.instance`   | number | The instance number of the object                                                                        |
+| `response.object.type`       | number | The type of the object                                                                                   |
+| `response.date`              | Date   | The date on which the notification has been send                                                         |
+| `response.priority`          | number | The priority given to the notification                                                                   |
+| `response.notificationClass` | number | The instance of the notificationClass the notification came from                                         |
+| `response.eventType`         | number | The eventType of the notification. The complete eventType list can be found under the Enum's `EventType` |
+| `response.notificationType`  | number | The notification type of the notification. Complete list can be found under the Enum's `NotifyType`      |
+| `response.fromState`         | number | The state the object was in. Complete list can be found under the Enum's `EventState`                    |
+| `response.toState`           | number | The state the object is in now. Complete list can be found under the Enum's `EventState`                 |
 
 ### Error Subject
 This subject will fire, when the UDP transporter has failed to send your message. This can occure when you gave this transporter an invalid IP address.
