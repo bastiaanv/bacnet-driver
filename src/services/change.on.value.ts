@@ -49,11 +49,6 @@ export class COV {
             const propertyType = buffer.buffer.readUIntBE(buffer.offset, propertyTypeLength);
             buffer.offset += propertyTypeLength + 1; // Also skip opening tag
 
-            if (propertyType === 85) {
-                const value = buffer.buffer[buffer.offset];
-                console.log({ tagNumber: (value & APPLICATION_TAG_MASK), length: (value & APPLICATION_TAG_LENGTH) })
-            }
-
             const value = ReadProperty.readValue(buffer);
             buffer.offset++; // Skip closing tag
 
