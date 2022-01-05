@@ -31,15 +31,21 @@ A BACnet protocol stack written in pure typescript with RXJS and promises. BACne
 
 Add Bacnet-driver to your project by:
 
-1. Adding the .npmrc file:
+1. Login to the Github Packages registry:
+
+```bash
+npm login --registry=https://npm.pkg.github.com
+```
+
+2. Adding the .npmrc file:
 
 ```
 registry=https://npm.pkg.github.com/bastiaanv
 ```
 
-2. Running the following npm command:
+3. Running the following npm command:
 
-```
+```bash
 npm i @bastiaanv/bacnet-driver
 ```
 
